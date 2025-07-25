@@ -5,6 +5,7 @@ import { LoggerMiddleware } from './utils/logger.middleware';
 import * as dotenv from 'dotenv';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { RedisModule } from './redis/redis.module';
 dotenv.config();
 
 @Module({
@@ -23,6 +24,7 @@ dotenv.config();
         limit: 100,
       },
     ]),
+    RedisModule,
   ],
 
   providers: [

@@ -5,12 +5,18 @@ import { db as drizzleClient } from '../db/drizzle.provider';
 import { users } from '../db/schema';
 import { or, eq, and } from 'drizzle-orm';
 import { hashPassword } from '../utils/hashing.utils';
+import Redis from 'ioredis';
 
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
 
-  constructor(@Inject('DRIZZLE') private readonly db: typeof drizzleClient) {}
+  constructor(
+    @Inject('DRIZZLE')
+    private readonly db: typeof drizzleClient,
+    @Inject('REDIS_CLIENT')
+    private readonly redisClient: Redis,
+  ) {}
 
   async createUser(userData: CreateUserDto): Promise<User> {
     const existingUser = await this.db
@@ -63,6 +69,29 @@ export class UsersService {
   }
 
   async findOne(
+    query: Partial<Record<keyof typeof users.$inferSelect, any>>,
+  ): Promise<User> {
+    if (!query.id) {
+      return this.findOneDb(query);
+    }
+
+    const cacheKey = `user:${query.id}`;
+    const cached = await this.redisClient.get(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached) as User;
+    }
+
+    const user = await this.findOneDb(query);
+
+    if (user) {
+      await this.redisClient.set(cacheKey, JSON.stringify(user), 'EX', 60 * 10);
+    }
+
+    return user;
+  }
+
+  private async findOneDb(
     query: Partial<Record<keyof typeof users.$inferSelect, any>>,
   ): Promise<User> {
     const conditions = Object.entries(query).map(([key, value]) =>
