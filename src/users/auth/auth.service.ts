@@ -19,7 +19,6 @@ export class AuthService {
     const user = await this.usersService.findOne({
       username: signInData.username,
     });
-
     if (!user) {
       throw new BadRequestException("User with given username doesn't exist");
     }

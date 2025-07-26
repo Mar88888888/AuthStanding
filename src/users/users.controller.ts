@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Post,
   Request,
   UseGuards,
@@ -40,7 +41,10 @@ export class UsersController {
   async getUserByToken(
     @Request() req: AuthorizedRequest,
   ): Promise<UserResponseDto> {
-    const user = await this.usersService.findOne({ id: req.user.sub });
+    const user = await this.usersService.findOneById(req.user.sub);
+    if (!user) {
+      throw new NotFoundException('User not found.');
+    }
     return UserResponseDto.fromEntity(user);
   }
 }
