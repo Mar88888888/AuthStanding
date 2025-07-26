@@ -134,4 +134,4 @@ Social login allows users to sign in using their existing accounts from services
 
 ### Sequence Diagram
 
-## ![Social Login Sequence Diagram](./OAuth_sequence_diagram.png)
+## ![Social Login Sequence Diagram](./OAuth_sequence_diagram.jpg)
