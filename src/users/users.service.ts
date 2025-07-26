@@ -6,6 +6,7 @@ import { users } from '../db/schema';
 import { or, eq, and } from 'drizzle-orm';
 import { hashPassword } from '../utils/hashing.utils';
 import Redis from 'ioredis';
+import { CacheKeyUtil } from '../utils/cache-key.util';
 
 @Injectable()
 export class UsersService {
@@ -70,30 +71,7 @@ export class UsersService {
 
   async findOne(
     query: Partial<Record<keyof typeof users.$inferSelect, any>>,
-  ): Promise<User> {
-    if (!query.id) {
-      return this.findOneDb(query);
-    }
-
-    const cacheKey = `user:${query.id}`;
-    const cached = await this.redisClient.get(cacheKey);
-
-    if (cached) {
-      return JSON.parse(cached) as User;
-    }
-
-    const user = await this.findOneDb(query);
-
-    if (user) {
-      await this.redisClient.set(cacheKey, JSON.stringify(user), 'EX', 60 * 10);
-    }
-
-    return user;
-  }
-
-  private async findOneDb(
-    query: Partial<Record<keyof typeof users.$inferSelect, any>>,
-  ): Promise<User> {
+  ): Promise<User | undefined> {
     const conditions = Object.entries(query).map(([key, value]) =>
       eq(users[key], value),
     );
@@ -103,6 +81,28 @@ export class UsersService {
       .from(users)
       .where(and(...conditions))
       .limit(1);
+
+    if (user?.id) {
+      const cacheKey = CacheKeyUtil.user(user.id);
+      await this.redisClient.set(cacheKey, JSON.stringify(user), 'EX', 60 * 10);
+    }
+
+    return user;
+  }
+
+  async findOneById(id: number): Promise<User | undefined> {
+    const cacheKey = CacheKeyUtil.user(id);
+    const cached = await this.redisClient.get(cacheKey);
+
+    if (cached) {
+      return JSON.parse(cached) as User;
+    }
+
+    const user = await this.findOne({ id });
+
+    if (user) {
+      await this.redisClient.set(cacheKey, JSON.stringify(user), 'EX', 60 * 10);
+    }
 
     return user;
   }
